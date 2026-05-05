@@ -28,7 +28,8 @@ jobs:
           npm install -g hexo-cli
           npm install hexo-generator-sitemap hexo-generator-feed
           git clone https://github.com/hexojs/hexo-theme-landscape.git themes/landscape
-          ls themes/landscape/
+          test -d themes/landscape && echo "THEME OK" || echo "THEME NOT FOUND"
+          ls -la themes/landscape/
 
       - name: Install dependencies
         run: npm install
@@ -55,6 +56,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          touch public/.nojekyll
           cd public
           git init
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
