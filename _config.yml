@@ -6,8 +6,8 @@ language: zh-CN
 timezone: Asia/Shanghai
 
 # URL
-url: https://gehongyu66.github.io
-root: /
+url: https://gehongyu66.github.io/gehongyu.github.io
+root: /gehongyu.github.io/
 permalink: :year/:month/:day/:title/
 
 # Directory
