@@ -1,0 +1,49 @@
+# Hexo Configuration
+title: AI科技日报
+subtitle: 每日AI热点自动整理
+author: AI Auto Writer
+language: zh-CN
+timezone: Asia/Shanghai
+
+# URL
+url: https://gehongyu66.github.io
+root: /
+permalink: :year/:month/:day/:title/
+
+# Directory
+source_dir: source
+public_dir: public
+tag_dir: tags
+archive_dir: archives
+category_dir: categories
+
+# Writing
+new_post_name: :title.md
+auto_spacing: true
+max_after_processed: 2000
+highlight:
+  enable: true
+  auto_detection: false
+
+# Category & Tag
+default_category: uncategorized
+category_map:
+  AI日报: AI热点
+tag_map:
+
+# Date / Time format
+date_format: YYYY-MM-DD
+time_format: HH:mm:ss
+
+# Pagination
+per_page: 10
+pagination_dir: page
+
+# Theme
+theme: landscape
+
+# Deployment
+deploy:
+  type: git
+  repo: git@github.com:gehongyu66/gehongyu.github.io.git
+  branch: main
