@@ -43,14 +43,14 @@ jobs:
         run: pip install feedparser requests
 
       - name: Fetch AI Hot News
-        id: fetch
         run: python ai_scripts/fetch_news.py
 
       - name: Generate Article
         run: python ai_scripts/generate_article.py
 
       - name: Generate static site
-        run: hexo generate
+        run: |
+          node -e "const Hexo = require('hexo'); const hexo = new Hexo('./', {silent: false}); hexo.init().then(() => hexo.call('generate', {})).then(() => hexo.exit()).catch(e => { console.error(e); hexo.exit(1); });"
 
       - name: Deploy to GitHub Pages
         env:
