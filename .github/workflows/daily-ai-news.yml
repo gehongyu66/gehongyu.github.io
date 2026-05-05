@@ -1,0 +1,204 @@
+name: Daily AI Hot News
+
+on:
+  schedule:
+    # 每天早上8点(北京时间)运行
+    # Cron: minute hour day month weekday
+    # 8 AM UTC = 16:00 北京时间，所以用 0 16 * * *
+    - cron: '0 8 * * *'
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  generate-ai-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install feedparser requests
+
+      - name: Fetch AI Hot News
+        id: fetch
+        run: |
+          python << 'EOF'
+          import feedparser
+          import json
+          from datetime import datetime, timedelta
+          import os
+          import random
+
+          # AI-related keywords for filtering
+          AI_KEYWORDS = [
+              'openai', 'gpt', 'chatgpt', 'claude', 'anthropic', 'gemini', 'google ai',
+              'llm', 'large language model', 'stable diffusion', 'midjourney',
+              'machine learning', 'deep learning', 'neural network', 'transformer',
+              'artificial intelligence', 'ai model', 'hugging face', 'meta ai',
+              'mistral', 'llama', 'qwen', 'copilot', 'cursor', 'github', 'arxiv',
+              'nvidia', 'gpu', 'tpu', 'agent', 'rag', 'embedding', 'vector database'
+          ]
+
+          def is_ai_related(title, summary=''):
+              text = (title + ' ' + summary).lower()
+              return any(kw in text for kw in AI_KEYWORDS)
+
+          def fetch_rss(url, source_name):
+              try:
+                  feed = feedparser.parse(url)
+                  items = []
+                  for entry in feed.entries[:15]:
+                      if is_ai_related(entry.get('title', ''), entry.get('summary', '')):
+                          items.append({
+                              'title': entry.get('title', ''),
+                              'link': entry.get('link', ''),
+                              'summary': entry.get('summary', '')[:200],
+                              'published': entry.get('published', ''),
+                              'source': source_name
+                          })
+                  return items
+              except Exception as e:
+                  print(f"Error fetching {source_name}: {e}")
+                  return []
+
+          # RSS sources
+          sources = [
+              ('https://feeds.feedburner.com/TechCrunch/startups', 'TechCrunch'),
+              ('https://www.theverge.com/rss/index.xml', 'The Verge'),
+              ('https://feeds.arstechnica.com/arstechnica/technology-lab', 'Ars Technica'),
+              ('https://rss.ai Summary', 'AI Summary'),
+          ]
+
+          all_news = []
+
+          # Try multiple sources
+          rss_urls = [
+              ('https://feeds.feedburner.com/TechCrunch/startups', 'TechCrunch'),
+              ('https://www.theverge.com/rss/index.xml', 'The Verge'),
+              ('https://feeds.arstechnica.com/arstechnica/index', 'Ars Technica'),
+              ('https://www.wired.com/feed/rss', 'Wired'),
+          ]
+
+          for url, name in rss_urls:
+              all_news.extend(fetch_rss(url, name))
+
+          # Deduplicate by title similarity
+          seen = set()
+          unique_news = []
+          for news in all_news:
+              title_lower = news['title'].lower()
+              if title_lower not in seen and len(title_lower) > 10:
+                  seen.add(title_lower)
+                  unique_news.append(news)
+
+          print(f"Fetched {len(unique_news)} AI-related news items")
+
+          # Save to JSON for next step
+          with open('ai_news_data.json', 'w', encoding='utf-8') as f:
+              json.dump(unique_news, f, ensure_ascii=False, indent=2)
+
+          if unique_news:
+              print(f"::set-output name=has_news::true")
+              print(f"::set-output name=news_count::{len(unique_news)}")
+          else:
+              print(f"::set-output name=has_news::false")
+          EOF
+
+      - name: Generate Article
+        if: steps.fetch.outputs.has_news == 'true'
+        run: |
+          python << 'EOF'
+          import json
+          from datetime import datetime, timedelta
+          import os
+          import re
+
+          # Read news data
+          with open('ai_news_data.json', 'r', encoding='utf-8') as f:
+              news_items = json.load(f)
+
+          # Sort by importance (longer titles usually more detailed)
+          news_items.sort(key=lambda x: len(x.get('title', '')), reverse=True)
+
+          # Take top stories
+          top_news = news_items[:10]
+
+          # Generate article
+          yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y年%m月%d日')
+
+          article = f'''---
+title: "[AI热点] {yesterday} 全球AI要闻速递"
+date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+tags: [AI, 热点, 日报, 全球AI]
+categories: AI热点
+author: AI Auto Writer
+---
+
+# {yesterday} 全球AI要闻速递
+
+> 本文由 AI 自动整理，内容源包括 TechCrunch、The Verge、Ars Technica、Wired 等科技媒体
+
+---
+
+## 今日概览
+
+共收录 {len(top_news)} 条AI领域重要资讯，涵盖模型更新、产品发布、行业动态等。
+
+'''
+
+          for i, news in enumerate(top_news, 1):
+              title = re.sub(r'<[^>]+>', '', news.get('title', ''))
+              link = news.get('link', '#')
+              source = news.get('source', 'Unknown')
+              summary = re.sub(r'<[^>]+>', '', news.get('summary', ''))[:150]
+
+              article += f'''### {i}. {title}
+
+**来源**: {source}
+
+{summary}...
+
+[阅读原文]({link})
+
+---
+
+'''
+
+          article += f'''
+## 编后语
+
+本日报由 AI 自动整理推送。如有遗漏或错误，欢迎反馈。
+
+*生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*
+'''
+
+          # Save article
+          date_str = datetime.now().strftime('%Y-%m-%d')
+          filename = f'source/_posts/ai-daily-{date_str}.md'
+          os.makedirs('source/_posts', exist_ok=True)
+
+          with open(filename, 'w', encoding='utf-8') as f:
+              f.write(article)
+
+          print(f"Article generated: {filename}")
+          print(f"::set-output name=filename::{filename}")
+
+      - name: Commit and Push
+        if: steps.fetch.outputs.has_news == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git diff --staged --quiet || git commit -m "AI日报: $(date +'%Y-%m-%d') 全球AI热点整理"
+          git push origin main || git push origin master
